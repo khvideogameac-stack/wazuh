@@ -1,0 +1,128 @@
+<!--
+  Rwased EDR active-response wiring — EXAMPLE.
+  Merge these <command> and <active-response> blocks into the manager's
+  /var/ossec/etc/ossec.conf (inside the top-level <ossec_config>).
+
+  SAFETY DESIGN:
+    * Every destructive command has <timeout_allowed>no</timeout_allowed>
+      EXCEPT host isolation, which is time-boxed so it auto-reverses.
+    * active-response is bound to the dedicated response-trigger rules
+      (101100 / 101101 / 101110), never to raw detections, and each requires a
+      high <level>. To change what auto-responds, edit one rule — not this file.
+    * The scripts themselves default to DRY-RUN (edr.conf.json dry_run=true /
+      EDR_DRY_RUN). Nothing is enforced until you flip that AND finish the lab
+      test plan. Leaving dry-run on means these blocks are safe to deploy now:
+      they will only ever log intended actions.
+    * <location>local</location> runs the response on the agent that generated
+      the alert — the endpoint you actually want to contain.
+
+  After editing ossec.conf run a config check and restart:
+    /var/ossec/bin/wazuh-logtest        # sanity-check rules load
+    systemctl restart wazuh-manager
+  After ANY agent.conf change (e.g. distributing edr.conf.json) also run:
+    /var/ossec/bin/verify-agent-conf
+-->
+
+<ossec_config>
+
+  <!-- ===================== command definitions ===================== -->
+  <!-- Linux agents run the .py directly; Windows agents run the .cmd
+       shim, which invokes the matching PowerShell script. Wazuh selects
+       the right one per-agent by OS automatically when both exist with the
+       same <name> only if you split them; here we register both explicitly
+       and bind by agent OS via separate active-response blocks if needed.
+       For a mixed fleet, keep the Linux .py names; Windows agents will use
+       the .cmd of the same base name present in their active-response/bin. -->
+
+  <command>
+    <name>edr-kill-process</name>
+    <executable>edr-kill-process.py</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
+  <command>
+    <name>edr-kill-process-win</name>
+    <executable>edr-kill-process.cmd</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
+  <command>
+    <name>edr-isolate-host</name>
+    <executable>edr-isolate-host.py</executable>
+    <timeout_allowed>yes</timeout_allowed>
+  </command>
+
+  <command>
+    <name>edr-isolate-host-win</name>
+    <executable>edr-isolate-host.cmd</executable>
+    <timeout_allowed>yes</timeout_allowed>
+  </command>
+
+  <command>
+    <name>edr-quarantine-file</name>
+    <executable>edr-quarantine-file.py</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
+  <command>
+    <name>edr-quarantine-file-win</name>
+    <executable>edr-quarantine-file.cmd</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
+  <!-- ===================== response bindings ===================== -->
+
+  <!-- Process termination: high-confidence LOLBin C2 correlation (rule 101100).
+       timeout_allowed=no => the 'delete' callback only logs (a kill can't be
+       undone). Kill script still enforces the protected-process denylist. -->
+  <active-response>
+    <command>edr-kill-process</command>
+    <location>local</location>
+    <rules_id>101100</rules_id>
+    <timeout>0</timeout>
+  </active-response>
+  <active-response>
+    <command>edr-kill-process-win</command>
+    <location>local</location>
+    <rules_id>101100</rules_id>
+    <timeout>0</timeout>
+  </active-response>
+
+  <!-- Host isolation: LOLBin C2 to a suspicious port (rule 101110). Time-boxed:
+       after <timeout> seconds the 'delete' callback auto-unisolates, so a
+       missed manual review cannot strand an endpoint offline. Extend/re-arm
+       from the console if the investigation needs longer. -->
+  <active-response>
+    <command>edr-isolate-host</command>
+    <location>local</location>
+    <rules_id>101110</rules_id>
+    <timeout>1800</timeout>
+  </active-response>
+  <active-response>
+    <command>edr-isolate-host-win</command>
+    <location>local</location>
+    <rules_id>101110</rules_id>
+    <timeout>1800</timeout>
+  </active-response>
+
+  <!-- File quarantine: certutil ingress-tool-transfer (rule 101101). The alert
+       must carry a file path (Sysmon FileCreate / FIM) for this to act;
+       otherwise the script logs 'not_found' and exits cleanly. -->
+  <active-response>
+    <command>edr-quarantine-file</command>
+    <location>local</location>
+    <rules_id>101101</rules_id>
+    <timeout>0</timeout>
+  </active-response>
+  <active-response>
+    <command>edr-quarantine-file-win</command>
+    <location>local</location>
+    <rules_id>101101</rules_id>
+    <timeout>0</timeout>
+  </active-response>
+
+  <!-- NOTE: live-response (Tier 2) is deliberately NOT wired here. It is
+       analyst-initiated only, via tools/edr-live-response.py with typed
+       confirmation. Do not add an <active-response> block for it. -->
+
+</ossec_config>

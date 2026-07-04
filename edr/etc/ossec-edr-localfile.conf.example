@@ -1,0 +1,33 @@
+<!--
+  Rwased EDR log ingestion — EXAMPLE.
+  Merge into the manager's /var/ossec/etc/ossec.conf so the EDR layer's own
+  activity flows back into the alert pipeline (and onward to Shuffle/TheHive).
+
+  These read logs that agents forward, or that the manager writes locally.
+  Place the <localfile> blocks inside <ossec_config>.
+-->
+
+<ossec_config>
+
+  <!-- EDR audit trail (JSON lines): every kill/isolate/quarantine decision,
+       including refusals and dry-runs. Decoded by the built-in json decoder;
+       rules 101120-101123 alert on it. -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/ossec/logs/active-responses-edr.log</location>
+  </localfile>
+
+  <!-- Manager-side live-response dispatch audit (analyst actions). -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/ossec/logs/edr-live-response-manager.log</location>
+  </localfile>
+
+  <!-- Live-response command output header (plain text). Decoded by
+       local_edr_decoders.xml; rule 101124 alerts on it. -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/ossec/logs/edr-live-response-output.log</location>
+  </localfile>
+
+</ossec_config>

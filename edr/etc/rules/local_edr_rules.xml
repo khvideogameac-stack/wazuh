@@ -1,0 +1,219 @@
+<!--
+  Rwased EDR telemetry rules — Tier 3.
+  Rule ID block: 101000-101199 (see edr/docs/rule-id-allocations.md for the
+  single source of truth alongside your existing custom ranges).
+
+  Scope:
+    101000-101019  LOLBin outbound network detections (Sysmon EID 3)
+    101020-101039  Suspicious LOLBin process creation (Sysmon EID 1)
+    101040-101059  Process-creation + network correlation
+    101100-101119  Response-trigger rules (what active-response keys off)
+    101120-101149  EDR response-action visibility (from the EDR audit log)
+
+  Conventions (kept consistent with local_windows_rules.xml):
+    - MITRE technique IDs via <mitre><id>.
+    - Compliance / framework references carried as <group> CSV tags, including
+      NCA ECC-2:2024 control references as nca_ecc_<control>.
+      NOTE: verify the exact ECC-2:2024 sub-control numbers against your control
+      mapping sheet before go-live — the domains chosen here (2-3 monitoring,
+      2-4 incident handling, 2-10 malware/event protection) are the defensible
+      mappings for LOLBin/host-based detections; the leaf numbers may differ in
+      your edition.
+
+  Sysmon field references use the Wazuh windows-eventchannel decoded paths
+  (win.eventdata.image, win.eventdata.destinationIp, ...). Base rules:
+    61603 = Sysmon Event 1 (process creation)
+    61605 = Sysmon Event 3 (network connection)
+  If your Sysmon base rule IDs differ, adjust the <if_sid> values.
+-->
+
+<group name="edr,rwased,sysmon,">
+
+  <!-- ============================================================= -->
+  <!-- 101000-101019 : LOLBin making an outbound network connection    -->
+  <!-- Sysmon EID 3 already carries Image + DestinationIp, so a single -->
+  <!-- event is sufficient and reliable. We exclude private/loopback    -->
+  <!-- destinations to focus on egress to external infrastructure.      -->
+  <!-- ============================================================= -->
+
+  <rule id="101000" level="12">
+    <if_sid>61605</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\rundll32\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|169\.254\.|::1$|fe80:)</field>
+    <description>EDR: rundll32.exe established an outbound connection to $(win.eventdata.destinationIp):$(win.eventdata.destinationPort) — possible LOLBin C2/proxy execution.</description>
+    <mitre>
+      <id>T1218.011</id>
+      <id>T1071.001</id>
+    </mitre>
+    <group>lolbin,defense_evasion,command_and_control,attack.t1218.011,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101001" level="12">
+    <if_sid>61605</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\mshta\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|169\.254\.|::1$|fe80:)</field>
+    <description>EDR: mshta.exe established an outbound connection to $(win.eventdata.destinationIp) — remote HTA/script staging is a common initial-access and C2 technique.</description>
+    <mitre>
+      <id>T1218.005</id>
+      <id>T1071.001</id>
+    </mitre>
+    <group>lolbin,defense_evasion,command_and_control,attack.t1218.005,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101002" level="12">
+    <if_sid>61605</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\certutil\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|169\.254\.|::1$|fe80:)</field>
+    <description>EDR: certutil.exe established an outbound connection to $(win.eventdata.destinationIp) — likely remote file download (ingress tool transfer).</description>
+    <mitre>
+      <id>T1105</id>
+      <id>T1140</id>
+    </mitre>
+    <group>lolbin,command_and_control,attack.t1105,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101003" level="12">
+    <if_sid>61605</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\regsvr32\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|169\.254\.|::1$|fe80:)</field>
+    <description>EDR: regsvr32.exe established an outbound connection to $(win.eventdata.destinationIp) — possible "Squiblydoo" remote scriptlet execution.</description>
+    <mitre>
+      <id>T1218.010</id>
+    </mitre>
+    <group>lolbin,defense_evasion,attack.t1218.010,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101004" level="12">
+    <if_sid>61605</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(bitsadmin|mftrace|msdt|installutil|msiexec)\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|169\.254\.|::1$|fe80:)</field>
+    <description>EDR: LOLBin $(win.eventdata.image) established an outbound connection to $(win.eventdata.destinationIp) — living-off-the-land egress.</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1105</id>
+    </mitre>
+    <group>lolbin,command_and_control,attack.t1218,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <!-- ============================================================= -->
+  <!-- 101020-101039 : Suspicious LOLBin process creation (Sysmon EID 1)-->
+  <!-- Catches the spawn itself (with parent + command line) so the      -->
+  <!-- correlation rules below have something to match against.          -->
+  <!-- ============================================================= -->
+
+  <rule id="101020" level="8">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(rundll32|mshta|certutil|regsvr32|bitsadmin)\.exe$</field>
+    <description>EDR: LOLBin $(win.eventdata.image) created (parent: $(win.eventdata.parentImage)).</description>
+    <mitre>
+      <id>T1218</id>
+    </mitre>
+    <group>lolbin,execution,attack.t1218,nca_ecc_2-3-3,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101021" level="12">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(rundll32|mshta|certutil|regsvr32)\.exe$</field>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\(winword|excel|powerpnt|outlook|wscript|cscript)\.exe$</field>
+    <description>EDR: LOLBin $(win.eventdata.image) spawned by Office/script host $(win.eventdata.parentImage) — classic phishing execution chain.</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1566.001</id>
+      <id>T1204.002</id>
+    </mitre>
+    <group>lolbin,execution,initial_access,attack.t1566.001,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <!-- ============================================================= -->
+  <!-- 101040-101059 : Correlation — a LOLBin that both spawned AND     -->
+  <!-- connected out on the same host within the window. Raises          -->
+  <!-- confidence over either single event.                              -->
+  <!-- ============================================================= -->
+
+  <rule id="101040" level="13" frequency="2" timeframe="120">
+    <if_matched_sid>101020</if_matched_sid>
+    <if_sid>101000,101001,101002,101003</if_sid>
+    <same_field>win.system.computer</same_field>
+    <description>EDR CORRELATION: LOLBin process creation followed by outbound network connection on $(win.system.computer) within 120s — high-confidence living-off-the-land activity.</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1071.001</id>
+      <id>T1105</id>
+    </mitre>
+    <group>lolbin,command_and_control,correlation,attack.t1218,nca_ecc_2-3-3,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <!-- ============================================================= -->
+  <!-- 101100-101119 : Response-trigger rules.                          -->
+  <!-- active-response keys off THESE rules, not the raw detections, so   -->
+  <!-- enabling/disabling automated response is a one-line change and     -->
+  <!-- the destructive action always requires a specific, high-level      -->
+  <!-- rule + group. Keep these disabled-by-effect (dry-run) until the    -->
+  <!-- lab test plan passes.                                              -->
+  <!-- ============================================================= -->
+
+  <rule id="101100" level="13">
+    <if_sid>101040</if_sid>
+    <description>EDR RESPONSE (terminate): high-confidence LOLBin C2 on $(win.system.computer) — eligible for automated process termination.</description>
+    <group>edr_response,edr_kill,lolbin,attack.t1218,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101101" level="13">
+    <if_sid>101002</if_sid>
+    <description>EDR RESPONSE (quarantine): certutil egress on $(win.system.computer) — downloaded payload eligible for file quarantine.</description>
+    <group>edr_response,edr_quarantine,lolbin,attack.t1105,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <rule id="101110" level="14">
+    <if_sid>101040</if_sid>
+    <field name="win.eventdata.destinationPort" type="pcre2">^(4444|1337|8443|9001|53)$</field>
+    <description>EDR RESPONSE (isolate): LOLBin C2 to a known suspicious port on $(win.system.computer) — eligible for host isolation.</description>
+    <group>edr_response,edr_isolate,lolbin,command_and_control,attack.t1071,nca_ecc_2-4-1,nca_ecc_2-10-3,</group>
+  </rule>
+
+  <!-- ============================================================= -->
+  <!-- 101120-101149 : EDR response-action visibility.                  -->
+  <!-- These alert on the EDR layer's OWN audit log (JSON), so every      -->
+  <!-- kill / isolate / quarantine — and every refusal or dry-run —       -->
+  <!-- surfaces as an alert and flows into Shuffle/TheHive like any       -->
+  <!-- other finding. Ingest the audit log as JSON (see the localfile      -->
+  <!-- stanza in edr/etc/ossec-edr-localfile.conf.example).                -->
+  <!-- ============================================================= -->
+
+  <rule id="101120" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="script" type="pcre2">^edr-</field>
+    <description>EDR audit: $(script) action=$(action) outcome=$(outcome) dry_run=$(dry_run).</description>
+    <group>edr_audit,nca_ecc_2-3-3,</group>
+  </rule>
+
+  <rule id="101121" level="12">
+    <if_sid>101120</if_sid>
+    <field name="outcome" type="pcre2">^(killed|isolated|quarantined|unisolated|restored)$</field>
+    <field name="dry_run">false</field>
+    <description>EDR action ENFORCED: $(script) outcome=$(outcome) rule=$(rule_id) agent=$(agent_id).</description>
+    <group>edr_audit,edr_enforced,nca_ecc_2-4-1,nca_ecc_2-3-3,</group>
+  </rule>
+
+  <rule id="101122" level="6">
+    <if_sid>101120</if_sid>
+    <field name="outcome">refused</field>
+    <description>EDR action REFUSED by safety policy: $(script) — $(detail.reason).</description>
+    <group>edr_audit,edr_refused,nca_ecc_2-4-1,</group>
+  </rule>
+
+  <rule id="101123" level="4">
+    <if_sid>101120</if_sid>
+    <field name="outcome">dry_run</field>
+    <description>EDR action (DRY-RUN, no change made): $(script) would $(action).</description>
+    <group>edr_audit,edr_dryrun,nca_ecc_2-3-3,</group>
+  </rule>
+
+  <!-- Live-response (read-only investigation) command executed on an endpoint. -->
+  <rule id="101124" level="5">
+    <decoded_as>rwased-edr-liveresponse</decoded_as>
+    <description>EDR live-response: read-only command '$(edr_lr_key)' ran on $(edr_lr_host) (rule $(edr_lr_rule)).</description>
+    <group>edr_audit,edr_liveresponse,nca_ecc_2-3-3,nca_ecc_2-4-1,</group>
+  </rule>
+
+</group>

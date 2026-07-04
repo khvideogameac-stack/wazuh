@@ -1,0 +1,29 @@
+<!--
+  Rwased EDR decoders — Tier 3.
+
+  Two EDR log streams flow back into the manager:
+
+   1. The EDR audit log (active-responses-edr.log) is JSON-lines. It needs NO
+      custom decoder — ingest it with <log_format>json</log_format> and Wazuh's
+      built-in json decoder names every field (script, action, outcome,
+      dry_run, rule_id, agent_id, detail.*). Rules 101120-101123 in
+      local_edr_rules.xml key off those fields.
+
+   2. The live-response output log (edr-live-response-output.log) is plain text
+      with a "EDR-LR host=... rule=... key=..." header before each command's
+      output. That header is decoded below so a running live-response command
+      surfaces as an alert (rule 101124).
+
+  See edr/etc/ossec-edr-localfile.conf.example for the matching <localfile>
+  stanzas.
+-->
+
+<decoder name="rwased-edr-liveresponse">
+  <prematch>^EDR-LR </prematch>
+</decoder>
+
+<decoder name="rwased-edr-liveresponse-fields">
+  <parent>rwased-edr-liveresponse</parent>
+  <regex offset="after_prematch">host=(\S+) rule=(\S+) key=(\S+)</regex>
+  <order>edr_lr_host, edr_lr_rule, edr_lr_key</order>
+</decoder>

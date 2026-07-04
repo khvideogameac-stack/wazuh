@@ -1,0 +1,45 @@
+{
+  "_comment": "Rwased EDR response-layer configuration. Deploy to /var/ossec/etc/edr.conf.json on the manager AND to each agent (agents read it locally so the response runs even if the manager is unreachable). The agent copy can be pushed via the shared/ agent.conf file-distribution mechanism. After ANY agent.conf change run: /var/ossec/bin/verify-agent-conf",
+
+  "dry_run": true,
+  "_dry_run_note": "Master safety switch. true = every Tier-1 script logs what it WOULD do and exits without acting. Override at runtime with the environment variable EDR_DRY_RUN (EDR_DRY_RUN=true forces dry-run; EDR_DRY_RUN=false honours this file). Flip to false here only after the lab test plan passes.",
+
+  "audit_log": {
+    "linux": "/var/ossec/logs/active-responses-edr.log",
+    "windows": "active-response\\active-responses-edr.log"
+  },
+
+  "manager": {
+    "ip": "10.20.22.10",
+    "_note": "The Wazuh manager IP. Host isolation always keeps this reachable so the agent stays monitorable.",
+    "agent_ports": [1514, 1515]
+  },
+
+  "process_kill": {
+    "denylist_names": [
+      "lsass.exe", "wininit.exe", "csrss.exe", "services.exe", "smss.exe",
+      "winlogon.exe", "svchost.exe", "system", "registry", "memory compression",
+      "systemd", "init", "kthreadd", "sshd", "systemd-journald", "dbus-daemon",
+      "wazuh-agentd", "wazuh-execd", "wazuh-modulesd", "wazuh-logcollector",
+      "wazuh-syscheckd", "ossec-agentd", "ossec-execd"
+    ],
+    "_denylist_note": "Never terminated, even if an alert names them. Protects the OS, the agent itself, and the AR channel. Names are matched case-insensitively.",
+    "protected_pid_max": 100,
+    "_protected_pid_note": "On Linux, never kill a PID <= this value (system/service range).",
+    "allowlist_names": [],
+    "_allowlist_note": "If non-empty, ONLY processes whose name is in this list may be terminated (strict mode). Leave empty to allow any non-denylisted process."
+  },
+
+  "isolation": {
+    "allow_ips": ["10.20.22.10"],
+    "allow_ports": [1514, 1515, 53],
+    "_note": "Outbound traffic is blocked except to these IPs/ports while a host is isolated. Keep the manager IP and DNS (53) so the agent keeps reporting. Isolation is reversible via edr-unisolate-host.*"
+  },
+
+  "quarantine": {
+    "dir_linux": "/var/ossec/quarantine",
+    "dir_windows": "quarantine",
+    "manifest": "quarantine-manifest.jsonl",
+    "_note": "Suspicious files are MOVED here (never deleted), 0600/locked-down, after their SHA256 is recorded in the manifest for restoration via edr-unquarantine-file.*"
+  }
+}
