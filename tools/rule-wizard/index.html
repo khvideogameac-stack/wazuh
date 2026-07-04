@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wazuh Rule Wizard — suppression &amp; rule authoring</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1a2027;
+    --muted: #5b6570;
+    --border: #d7dce2;
+    --accent: #3585c2;
+    --accent-text: #ffffff;
+    --accent-soft: #e3f0fa;
+    --danger: #b3362c;
+    --ok: #2e7d4f;
+    --code-bg: #10151b;
+    --code-text: #d6e2ee;
+    --chip-bg: #eef1f4;
+    --warn-bg: #fdf3e0;
+    --warn-border: #e0b45c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1419;
+      --panel: #171e26;
+      --text: #dbe4ec;
+      --muted: #8b98a5;
+      --border: #2c3742;
+      --accent: #4d9fdc;
+      --accent-text: #0b1015;
+      --accent-soft: #16334a;
+      --danger: #e07a72;
+      --ok: #63b98a;
+      --code-bg: #0b1015;
+      --code-text: #cfdbe7;
+      --chip-bg: #212b35;
+      --warn-bg: #33290f;
+      --warn-border: #8a6d2b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 14px 22px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  header h1 small { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
+  .spacer { flex: 1; }
+  .layout { display: flex; gap: 18px; padding: 18px 22px; max-width: 1500px; margin: 0 auto; align-items: flex-start; }
+  nav.steps { min-width: 210px; position: sticky; top: 18px; }
+  nav.steps ol { list-style: none; margin: 0; padding: 0; }
+  nav.steps li {
+    padding: 9px 12px; margin-bottom: 6px; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; color: var(--muted); font-size: 14px;
+  }
+  nav.steps li .n {
+    display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center;
+    border-radius: 50%; background: var(--chip-bg); margin-right: 8px; font-size: 12px; font-weight: 600;
+  }
+  nav.steps li.active { background: var(--accent-soft); color: var(--text); border-color: var(--border); }
+  nav.steps li.active .n { background: var(--accent); color: var(--accent-text); }
+  main { flex: 1; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .panel h2 { margin: 0 0 4px; font-size: 17px; }
+  .panel p.hint { margin: 0 0 16px; color: var(--muted); font-size: 13.5px; }
+  fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 16px; padding: 12px 14px; }
+  legend { font-size: 13px; font-weight: 600; color: var(--muted); padding: 0 6px; }
+  label.f { display: block; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
+  label.f span.req { color: var(--danger); }
+  label.f small { display: block; font-weight: 400; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); font: inherit; font-size: 14px;
+  }
+  textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > label.f { flex: 1; min-width: 160px; }
+  .choice-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .choice-cards label {
+    flex: 1; min-width: 230px; border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 14px; cursor: pointer; display: block;
+  }
+  .choice-cards label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .choice-cards input { margin-right: 8px; }
+  .choice-cards b { font-size: 14.5px; }
+  .choice-cards p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+  table.rows { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  table.rows th { text-align: left; font-size: 12px; color: var(--muted); padding: 4px 6px; font-weight: 600; }
+  table.rows td { padding: 4px 6px; vertical-align: top; }
+  table.rows td.grp { width: 92px; }
+  table.rows td.mod { width: 150px; }
+  table.rows td.del { width: 34px; }
+  button {
+    font: inherit; font-size: 14px; padding: 8px 16px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  button.icon { padding: 4px 9px; color: var(--danger); font-weight: 700; }
+  button:hover { filter: brightness(1.05); }
+  .btnbar { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 340px; overflow: auto; }
+  .chip {
+    background: var(--chip-bg); border: 1px solid var(--border); border-radius: 14px;
+    font-size: 12.5px; padding: 3px 10px; cursor: pointer; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .chip b { color: var(--accent); font-weight: 600; }
+  .chip:hover { border-color: var(--accent); }
+  pre.out {
+    background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 14px;
+    overflow: auto; font-size: 13px; line-height: 1.45; margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre; max-height: 560px;
+  }
+  .outhead { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; }
+  .outhead h3 { margin: 0; font-size: 14.5px; flex: 1; }
+  .notice { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+  .errors { color: var(--danger); font-size: 13.5px; margin: 0 0 12px; padding-left: 18px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; padding: 7px 14px; font-size: 13.5px; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .mitre-tactics { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 12px; }
+  .mitre-tactics label { font-size: 13px; font-weight: 400; display: flex; gap: 7px; align-items: center; }
+  .apply ol { margin: 6px 0 0; padding-left: 20px; font-size: 13.5px; }
+  .apply li { margin-bottom: 5px; }
+  .hidden { display: none !important; }
+  .okflash { color: var(--ok); font-size: 13px; }
+  @media (max-width: 900px) {
+    .layout { flex-direction: column; }
+    nav.steps { position: static; width: 100%; }
+    nav.steps ol { display: flex; flex-wrap: wrap; gap: 6px; }
+    nav.steps li { margin-bottom: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wazuh Rule Wizard <small>guided suppression &amp; rule authoring</small></h1>
+  <div class="spacer"></div>
+  <span style="font-size:13px;color:var(--muted)">Target:</span>
+  <div class="seg" id="targetSeg">
+    <button type="button" data-target="5x" class="on">Wazuh 5.x (YAML)</button>
+    <button type="button" data-target="4x">Wazuh 4.x (XML)</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="steps">
+    <ol id="stepNav">
+      <li data-step="0" class="active"><span class="n">1</span>Basics</li>
+      <li data-step="1"><span class="n">2</span>Sample event</li>
+      <li data-step="2"><span class="n">3</span>Conditions</li>
+      <li data-step="3"><span class="n">4</span>Classification</li>
+      <li data-step="4"><span class="n">5</span>Review &amp; export</li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- STEP 1: Basics -->
+    <section class="panel step" data-step="0">
+      <h2>What do you want to do?</h2>
+      <p class="hint">Both flows produce ready-to-deploy output: Sigma-style YAML for Wazuh 5.x, or a <code>local_rules.xml</code> snippet for Wazuh 4.x.</p>
+      <div class="choice-cards">
+        <label>
+          <input type="radio" name="mode" value="suppress" checked>
+          <b>Suppress a false positive</b>
+          <p>An existing rule keeps firing on legitimate activity. Describe the false positive and get a tuned rule that stops the noise without disabling detection.</p>
+        </label>
+        <label>
+          <input type="radio" name="mode" value="author">
+          <b>Author a new detection rule</b>
+          <p>Build a custom detection rule from scratch with match conditions, severity, MITRE ATT&amp;CK and compliance mappings.</p>
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="f" style="flex:2">Title <span class="req">*</span>
+          <small>Short name for the rule (shown in findings / alerts).</small>
+          <input type="text" id="fTitle" placeholder="e.g. Suppress sshd failed-login noise from backup scanner">
+        </label>
+        <label class="f">Author
+          <input type="text" id="fAuthor" placeholder="Security Team">
+        </label>
+      </div>
+      <label class="f">Description
+        <small>What the rule detects — or why the suppression is safe.</small>
+        <textarea id="fDescription" rows="2" placeholder="e.g. The Nessus scanner at 10.20.0.15 triggers sshd authentication failures during its nightly scan window."></textarea>
+      </label>
+      <label class="f">References
+        <small>One URL or note per line (ticket link, vendor doc…).</small>
+        <textarea id="fReferences" rows="2"></textarea>
+      </label>
+
+      <fieldset id="suppressBasics">
+        <legend>Rule being suppressed</legend>
+        <div class="row only-5x">
+          <label class="f">Original rule title / UUID
+            <small>The 5.x standard rule you are tuning. Standard rules are read-only, so the wizard produces a tuned copy for your custom space.</small>
+            <input type="text" id="fOrigRule" placeholder="e.g. SSH login attempt with non-existent user">
+          </label>
+        </div>
+        <div class="row only-4x">
+          <label class="f">Rule ID to suppress (<code>if_sid</code>) <span class="req">*</span>
+            <small>The numeric ID of the noisy rule, e.g. 5710. Find it in the alert's <code>rule.id</code> field.</small>
+            <input type="number" id="fParentSid" placeholder="5710">
+          </label>
+          <label class="f">New rule ID
+            <small>Custom rule IDs must be 100000–120000.</small>
+            <input type="number" id="fNewSid" value="100100" min="100000" max="120000">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset id="authorBasics" class="hidden">
+        <legend>Log source</legend>
+        <div class="row only-5x">
+          <label class="f">Product
+            <small>Maps to <code>logsource.product</code>, e.g. <code>linux</code>, <code>windows</code>, <code>sshd</code>, <code>o365</code>.</small>
+            <input type="text" id="fLsProduct" placeholder="linux">
+          </label>
+          <label class="f">Service
+            <small>Maps to <code>logsource.service</code>, e.g. <code>sshd</code>, <code>auditd</code>.</small>
+            <input type="text" id="fLsService" placeholder="sshd">
+          </label>
+          <label class="f">Integration name
+            <small>Adds <code>wazuh.integration.name</code> to the match (recommended).</small>
+            <input type="text" id="fIntegrationName" placeholder="e.g. sshd">
+          </label>
+        </div>
+        <div class="row only-4x">
+          <label class="f">Group name
+            <small><code>&lt;group name="…"&gt;</code> wrapper, comma-separated.</small>
+            <input type="text" id="fGroupName" value="local,custom,">
+          </label>
+          <label class="f">Decoded as
+            <small>Optional <code>&lt;decoded_as&gt;</code> decoder binding, e.g. <code>json</code>, <code>sshd</code>.</small>
+            <input type="text" id="fDecodedAs" placeholder="json">
+          </label>
+          <label class="f">Rule ID
+            <small>Custom rule IDs must be 100000–120000.</small>
+            <input type="number" id="fAuthorSid" value="100100" min="100000" max="120000">
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="btnbar"><span class="spacer"></span><button class="primary" data-nav="1">Next: Sample event →</button></div>
+    </section>
+
+    <!-- STEP 2: Sample event -->
+    <section class="panel step hidden" data-step="1">
+      <h2>Paste a sample event <span style="font-weight:400;color:var(--muted)">(optional, but the fastest path)</span></h2>
+      <p class="hint">
+        Paste the JSON of the alert / finding / event you want to act on — from the dashboard's alert detail,
+        a <code>wazuh-events-v5-*</code> or <code>wazuh-findings-v5-*</code> document (5.x), or an entry from
+        <code>alerts.json</code> (4.x). Then click the fields that identify the traffic.
+      </p>
+      <textarea id="fSampleJson" rows="8" placeholder='{"event":{"action":"authentication-failed"},"source":{"ip":"10.20.0.15"},"user":{"name":"svc-backup"},"host":{"name":"web-01"}}'></textarea>
+      <div class="btnbar" style="margin-top:10px">
+        <button class="small" id="btnParseSample">Extract fields</button>
+        <button class="small" id="btnLoadExample">Load an example</button>
+        <span id="sampleMsg" class="okflash"></span>
+      </div>
+      <div class="chips" id="fieldChips"></div>
+      <div class="btnbar">
+        <button data-nav="0">← Back</button><span class="spacer"></span>
+        <button class="primary" data-nav="2">Next: Conditions →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Conditions -->
+    <section class="panel step hidden" data-step="2">
+      <h2 id="condTitle">Conditions</h2>
+      <p class="hint" id="condHint"></p>
+
+      <fieldset>
+        <legend id="selLegend">Match conditions (selection)</legend>
+        <p class="hint" id="selHint" style="margin-bottom:8px"></p>
+        <table class="rows" id="selTable">
+          <thead><tr><th>Field</th><th>Operator</th><th>Value(s) — comma-separate for OR</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="small" id="btnAddSel">+ Add condition</button>
+      </fieldset>
+
+      <fieldset id="filterFieldset">
+        <legend id="filtLegend">False-positive conditions</legend>
+        <p class="hint" id="filtHint" style="margin-bottom:8px"></p>
+        <table class="rows" id="filtTable">
+          <thead><tr><th class="grp">Group</th><th>Field</th><th>Operator</th><th>Value(s) — comma-separate for OR</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="small" id="btnAddFilt">+ Add condition</button>
+        <p class="hint" style="margin:8px 0 0">
+          Conditions in the same group must <b>all</b> match (AND). Use separate groups for independent
+          exceptions (group 1 OR group 2). In 4.x, each group becomes its own suppression rule.
+        </p>
+      </fieldset>
+
+      <div class="only-5x">
+        <label class="f">Condition expression <small>Auto-generated from the tables above; edit only if you need custom logic.</small>
+          <input type="text" id="fCondition" placeholder="(auto)">
+        </label>
+      </div>
+
+      <div class="btnbar">
+        <button data-nav="1">← Back</button><span class="spacer"></span>
+        <button class="primary" data-nav="3">Next: Classification →</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: Classification -->
+    <section class="panel step hidden" data-step="3">
+      <h2>Severity &amp; classification</h2>
+      <p class="hint">Severity is required. MITRE, compliance and tags are optional but make findings far more useful. Suppression rules usually keep the defaults.</p>
+
+      <div class="row">
+        <label class="f">Severity <span class="req">*</span>
+          <small class="only-5x">5.x keyword level.</small>
+          <small class="only-4x">Mapped to a 4.x numeric level (editable below).</small>
+          <select id="fLevel">
+            <option value="informational">informational</option>
+            <option value="low" selected>low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="critical">critical</option>
+          </select>
+        </label>
+        <label class="f only-4x">4.x numeric level (0–16)
+          <small>0 silently drops the event — that is what a suppression rule wants.</small>
+          <input type="number" id="fLevel4x" min="0" max="16" value="0">
+        </label>
+        <label class="f only-5x">Status
+          <select id="fStatus">
+            <option value="experimental" selected>experimental</option>
+            <option value="test">test</option>
+            <option value="stable">stable</option>
+          </select>
+        </label>
+        <label class="f only-5x">Enabled
+          <select id="fEnabled"><option value="true" selected>true</option><option value="false">false</option></select>
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>MITRE ATT&amp;CK</legend>
+        <label class="f">Tactics <small>5.x requires tactic IDs alongside techniques.</small></label>
+        <div class="mitre-tactics" id="mitreTactics"></div>
+        <div class="row" style="margin-top:12px">
+          <label class="f">Techniques <small>Comma-separated IDs, e.g. <code>T1110, T1078</code></small>
+            <input type="text" id="fMitreTech" placeholder="T1110">
+          </label>
+          <label class="f">Sub-techniques <small>e.g. <code>T1110.001</code></small>
+            <input type="text" id="fMitreSub" placeholder="">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Compliance mappings <span style="font-weight:400">— comma-separated control IDs</span></legend>
+        <div class="row" id="complianceRow"></div>
+      </fieldset>
+
+      <div class="row">
+        <label class="f">Tags <small>Comma-separated, e.g. <code>attack.credential-access, attack.t1110</code></small>
+          <input type="text" id="fTags" placeholder="">
+        </label>
+        <label class="f">Known false positives <small>One per line.</small>
+          <textarea id="fFalsePositives" rows="2"></textarea>
+        </label>
+      </div>
+
+      <div class="btnbar">
+        <button data-nav="2">← Back</button><span class="spacer"></span>
+        <button class="primary" data-nav="4">Next: Review →</button>
+      </div>
+    </section>
+
+    <!-- STEP 5: Review -->
+    <section class="panel step hidden" data-step="4">
+      <h2>Review &amp; export</h2>
+      <ul class="errors hidden" id="errList"></ul>
+      <div class="notice hidden" id="lossyNotice"></div>
+
+      <div class="outhead">
+        <h3 id="outTitle">Generated rule</h3>
+        <button class="small" id="btnCopy">Copy</button>
+        <button class="small" id="btnDownload">Download</button>
+        <span id="copyMsg" class="okflash"></span>
+      </div>
+      <pre class="out" id="outMain"></pre>
+
+      <div class="only-5x">
+        <div class="outhead">
+          <h3>Create it via the Content Manager API</h3>
+          <button class="small" id="btnCopyCurl">Copy</button>
+        </div>
+        <pre class="out" id="outCurl"></pre>
+      </div>
+
+      <div class="panel apply" style="margin-top:16px">
+        <h2 style="font-size:15px">How to deploy</h2>
+        <ol id="applySteps"></ol>
+      </div>
+
+      <div class="btnbar">
+        <button data-nav="3">← Back</button><span class="spacer"></span>
+        <button id="btnStartOver">Start over</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<datalist id="wcsFields">
+  <option value="event.action"><option value="event.outcome"><option value="event.code">
+  <option value="event.category"><option value="event.original"><option value="event.severity">
+  <option value="source.ip"><option value="source.port"><option value="source.geo.country_iso_code">
+  <option value="destination.ip"><option value="destination.port"><option value="destination.geo.country_iso_code">
+  <option value="network.protocol"><option value="url.original">
+  <option value="user.name"><option value="user.target.name">
+  <option value="host.name"><option value="observer.hostname">
+  <option value="process.name"><option value="process.pid"><option value="process.command_line">
+  <option value="file.path"><option value="file.name"><option value="registry.path">
+  <option value="log.level">
+  <option value="wazuh.integration.name"><option value="wazuh.agent.id"><option value="wazuh.agent.name">
+  <option value="wazuh.agent.groups"><option value="wazuh.cluster.name"><option value="wazuh.cluster.node">
+  <option value="wazuh.protocol.location">
+</datalist>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ state */
+
+const state = {
+  target: '5x',          // '5x' | '4x'
+  mode: 'suppress',      // 'suppress' | 'author'
+  step: 0,
+};
+
+const MODIFIERS = [
+  ['', 'equals'],
+  ['contains', 'contains'],
+  ['startswith', 'starts with'],
+  ['endswith', 'ends with'],
+  ['re', 'regex'],
+  ['re|i', 'regex (case-insens.)'],
+  ['cidr', 'in CIDR range'],
+  ['exists', 'exists (true/false)'],
+  ['gt', '> (numeric)'],
+  ['gte', '>= (numeric)'],
+  ['lt', '< (numeric)'],
+  ['lte', '<= (numeric)'],
+];
+
+const MITRE_TACTICS = [
+  ['TA0001', 'Initial Access'], ['TA0002', 'Execution'], ['TA0003', 'Persistence'],
+  ['TA0004', 'Privilege Escalation'], ['TA0005', 'Defense Evasion'], ['TA0006', 'Credential Access'],
+  ['TA0007', 'Discovery'], ['TA0008', 'Lateral Movement'], ['TA0009', 'Collection'],
+  ['TA0010', 'Exfiltration'], ['TA0011', 'Command and Control'], ['TA0040', 'Impact'],
+  ['TA0042', 'Resource Development'], ['TA0043', 'Reconnaissance'],
+];
+
+const COMPLIANCE_KEYS = [
+  ['pci_dss', 'PCI DSS'], ['gdpr', 'GDPR'], ['hipaa', 'HIPAA'], ['nist_800_53', 'NIST 800-53'],
+  ['nist_800_171', 'NIST 800-171'], ['iso_27001', 'ISO 27001'], ['tsc', 'TSC'],
+  ['nis2', 'NIS2'], ['fedramp', 'FedRAMP'], ['cmmc', 'CMMC'],
+];
+
+// WCS path -> dedicated 4.x rule element
+const WCS_TO_4X = {
+  'source.ip': 'srcip', 'destination.ip': 'dstip',
+  'source.port': 'srcport', 'destination.port': 'dstport',
+  'source.geo.country_iso_code': 'srcgeoip', 'destination.geo.country_iso_code': 'dstgeoip',
+  'user.name': 'user', 'user.target.name': 'dstuser',
+  'network.protocol': 'protocol', 'process.name': 'program_name',
+  'event.action': 'action', 'event.outcome': 'status', 'event.code': 'id',
+  'url.original': 'url', 'host.name': 'system_name', 'observer.hostname': 'hostname',
+  'event.original': 'match',
+};
+
+// 5.x severity keyword -> representative 4.x numeric level
+const LEVEL_5X_TO_4X = { informational: 3, low: 5, medium: 7, high: 12, critical: 14 };
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+/* --------------------------------------------------------- dynamic UI init */
+
+(function initMitre() {
+  const box = $('#mitreTactics');
+  for (const [id, name] of MITRE_TACTICS) {
+    const l = document.createElement('label');
+    l.innerHTML = `<input type="checkbox" value="${id}"> ${id} — ${name}`;
+    box.appendChild(l);
+  }
+})();
+
+(function initCompliance() {
+  const row = $('#complianceRow');
+  for (const [key, name] of COMPLIANCE_KEYS) {
+    const l = document.createElement('label');
+    l.className = 'f';
+    l.innerHTML = `${name}<input type="text" data-compliance="${key}" placeholder="">`;
+    row.appendChild(l);
+  }
+})();
+
+/* ------------------------------------------------------- condition tables */
+
+function addRow(tableSel, withGroup, preset) {
+  const tbody = $(tableSel + ' tbody');
+  const tr = document.createElement('tr');
+  let html = '';
+  if (withGroup) {
+    html += `<td class="grp"><select class="r-group">
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option></select></td>`;
+  }
+  html += `<td><input type="text" class="r-field" list="wcsFields" placeholder="field, e.g. source.ip"></td>
+    <td class="mod"><select class="r-mod">${MODIFIERS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></td>
+    <td><input type="text" class="r-value" placeholder="value"></td>
+    <td class="del"><button type="button" class="icon" title="Remove">✕</button></td>`;
+  tr.innerHTML = html;
+  tr.querySelector('.icon').addEventListener('click', () => { tr.remove(); refresh(); });
+  tr.addEventListener('input', refresh);
+  if (preset) {
+    tr.querySelector('.r-field').value = preset.field || '';
+    tr.querySelector('.r-value').value = preset.value || '';
+    if (preset.mod !== undefined) tr.querySelector('.r-mod').value = preset.mod;
+    if (withGroup && preset.group) tr.querySelector('.r-group').value = preset.group;
+  }
+  tbody.appendChild(tr);
+  return tr;
+}
+
+function readRows(tableSel, withGroup) {
+  return $$(tableSel + ' tbody tr').map(tr => ({
+    group: withGroup ? tr.querySelector('.r-group').value : '1',
+    field: tr.querySelector('.r-field').value.trim(),
+    mod: tr.querySelector('.r-mod').value,
+    value: tr.querySelector('.r-value').value.trim(),
+  })).filter(r => r.field);
+}
+
+$('#btnAddSel').addEventListener('click', () => addRow('#selTable', false));
+$('#btnAddFilt').addEventListener('click', () => addRow('#filtTable', true));
+addRow('#selTable', false);
+addRow('#filtTable', true);
+
+/* ---------------------------------------------------------- sample events */
+
+const EXAMPLES = {
+  suppress: {
+    event: { action: 'authentication-failed', category: ['authentication'], outcome: 'failure' },
+    source: { ip: '10.20.0.15', port: 51422 },
+    user: { name: 'svc-backup' },
+    host: { name: 'web-01' },
+    process: { name: 'sshd' },
+    wazuh: { integration: { name: 'sshd' }, agent: { id: '004', name: 'web-01' } },
+  },
+  author: {
+    event: { action: 'process-started', category: ['process'] },
+    process: { name: 'powershell.exe', command_line: 'powershell -enc SQBFAFgA...', pid: 4711 },
+    user: { name: 'j.doe' },
+    host: { name: 'ws-042' },
+    wazuh: { integration: { name: 'windows-security' }, agent: { id: '012' } },
+  },
+};
+
+function flatten(obj, prefix, out) {
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? prefix + '.' + k : k;
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) flatten(v, path, out);
+    else out.push([path, Array.isArray(v) ? v.join(', ') : String(v)]);
+  }
+  return out;
+}
+
+function parseSample() {
+  const txt = $('#fSampleJson').value.trim();
+  const box = $('#fieldChips');
+  box.innerHTML = '';
+  $('#sampleMsg').textContent = '';
+  if (!txt) return;
+  let obj;
+  try { obj = JSON.parse(txt); } catch (e) {
+    $('#sampleMsg').textContent = 'Not valid JSON: ' + e.message;
+    return;
+  }
+  const entries = flatten(obj, '', []);
+  if (!entries.length) { $('#sampleMsg').textContent = 'No fields found.'; return; }
+  const isSuppress = state.mode === 'suppress';
+  const hint = document.createElement('p');
+  hint.className = 'hint';
+  hint.style.cssText = 'flex-basis:100%;margin:0';
+  hint.textContent = isSuppress
+    ? 'Click each field that identifies the false positive (e.g. the scanner IP, the service account):'
+    : 'Click each field the rule should match on:';
+  box.appendChild(hint);
+  for (const [path, value] of entries) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.title = 'Add ' + path + ' = ' + value;
+    chip.innerHTML = `<b>${escapeHtml(path)}</b> = ${escapeHtml(value)}`;
+    chip.addEventListener('click', () => {
+      const table = isSuppress ? '#filtTable' : '#selTable';
+      const withGroup = isSuppress;
+      // reuse a trailing empty row if present
+      const empty = $$(table + ' tbody tr').find(tr => !tr.querySelector('.r-field').value.trim());
+      const tr = empty || addRow(table, withGroup);
+      tr.querySelector('.r-field').value = path;
+      tr.querySelector('.r-value').value = value;
+      chip.style.opacity = '0.45';
+      refresh();
+    });
+    box.appendChild(chip);
+  }
+}
+
+$('#btnParseSample').addEventListener('click', parseSample);
+$('#btnLoadExample').addEventListener('click', () => {
+  $('#fSampleJson').value = JSON.stringify(EXAMPLES[state.mode], null, 2);
+  parseSample();
+});
+
+/* ----------------------------------------------------------------- utils */
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeXml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function yStr(s) {
+  // YAML double-quoted scalar
+  return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+function splitList(s) {
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+function splitLines(s) {
+  return s.split('\n').map(x => x.trim()).filter(Boolean);
+}
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/* ------------------------------------------------------- value conversion */
+
+function rowValues(row) {
+  // exists / numeric modifiers take a single raw value; everything else may be a list
+  if (row.mod === 'exists') return [row.value.toLowerCase() === 'false' ? false : true];
+  if (['gt', 'gte', 'lt', 'lte'].includes(row.mod)) {
+    const n = Number(row.value);
+    return [Number.isFinite(n) ? n : row.value];
+  }
+  const vals = splitList(row.value);
+  return vals.length ? vals : [''];
+}
+
+function yamlValue(v) {
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  return yStr(v);
+}
+
+/* ---------------------------------------------------------- 5.x generator */
+
+function buildSelectionMap(rows) {
+  // rows -> ordered [key, values] entries; duplicate fields+mod merge their values
+  const map = new Map();
+  for (const row of rows) {
+    const key = row.field + (row.mod ? '|' + row.mod : '');
+    const vals = rowValues(row);
+    if (map.has(key)) map.get(key).push(...vals); else map.set(key, [...vals]);
+  }
+  return map;
+}
+
+function emitSelection(name, map, lines) {
+  lines.push('  ' + name + ':');
+  for (const [key, vals] of map) {
+    if (vals.length === 1) {
+      lines.push('    ' + key + ': ' + yamlValue(vals[0]));
+    } else {
+      lines.push('    ' + key + ':');
+      for (const v of vals) lines.push('      - ' + yamlValue(v));
+    }
+  }
+}
+
+function generate5x(d) {
+  const lines = [];
+  lines.push('enabled: ' + d.enabled);
+  lines.push('status: ' + yStr(d.status));
+  lines.push('level: ' + yStr(d.level));
+  lines.push('');
+  lines.push('metadata:');
+  lines.push('  title: ' + yStr(d.title));
+  if (d.author) lines.push('  author: ' + yStr(d.author));
+  lines.push('  date: ' + yStr(today()));
+  if (d.description) lines.push('  description: ' + yStr(d.description));
+  const refs = [...d.references];
+  if (d.mode === 'suppress' && d.origRule) refs.push('Tuned copy of standard rule: ' + d.origRule);
+  if (refs.length) {
+    lines.push('  references:');
+    for (const r of refs) lines.push('    - ' + yStr(r));
+  }
+  lines.push('');
+  if (d.lsProduct || d.lsService) {
+    lines.push('logsource:');
+    if (d.lsProduct) lines.push('  product: ' + yStr(d.lsProduct));
+    if (d.lsService) lines.push('  service: ' + yStr(d.lsService));
+    lines.push('');
+  }
+
+  // detection
+  const selRows = [...d.selRows];
+  if (d.integrationName && !selRows.some(r => r.field === 'wazuh.integration.name')) {
+    selRows.push({ field: 'wazuh.integration.name', mod: '', value: d.integrationName });
+  }
+  const filterGroups = groupFilters(d.filtRows);
+  let condition = d.conditionOverride;
+  if (!condition) {
+    condition = 'selection';
+    if (filterGroups.length === 1) condition += ' and not filter_1';
+    else if (filterGroups.length > 1) condition += ' and not 1 of filter_*';
+  }
+  lines.push('detection:');
+  lines.push('  condition: ' + yStr(condition));
+  if (selRows.length) {
+    emitSelection('selection', buildSelectionMap(selRows), lines);
+  } else {
+    lines.push('  selection: {}   # TODO: add the original rule\'s match conditions here');
+  }
+  filterGroups.forEach((rows, i) => emitSelection('filter_' + (i + 1), buildSelectionMap(rows), lines));
+  lines.push('');
+
+  if (d.tactics.length || d.techniques.length) {
+    lines.push('mitre:');
+    lines.push('  tactic:');
+    for (const t of d.tactics) lines.push('    - ' + yStr(t));
+    lines.push('  technique:');
+    for (const t of d.techniques) lines.push('    - ' + yStr(t));
+    if (d.subtechniques.length) {
+      lines.push('  subtechnique:');
+      for (const t of d.subtechniques) lines.push('    - ' + yStr(t));
+    } else {
+      lines.push('  subtechnique: []');
+    }
+    lines.push('');
+  }
+  const compKeys = Object.keys(d.compliance);
+  if (compKeys.length) {
+    lines.push('compliance:');
+    for (const k of compKeys) {
+      lines.push('  ' + k + ':');
+      for (const v of d.compliance[k]) lines.push('    - ' + yStr(v));
+    }
+    lines.push('');
+  }
+  if (d.tags.length) {
+    lines.push('tags:');
+    for (const t of d.tags) lines.push('  - ' + yStr(t));
+    lines.push('');
+  }
+  if (d.falsePositives.length) {
+    lines.push('falsepositives:');
+    for (const f of d.falsePositives) lines.push('  - ' + yStr(f));
+    lines.push('');
+  }
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  return lines.join('\n') + '\n';
+}
+
+function groupFilters(rows) {
+  const byGroup = new Map();
+  for (const r of rows) {
+    if (!byGroup.has(r.group)) byGroup.set(r.group, []);
+    byGroup.get(r.group).push(r);
+  }
+  return [...byGroup.keys()].sort().map(g => byGroup.get(g));
+}
+
+/* ------------------------------------------------ 5.x rule object -> curl */
+
+function generateCurl(d, yaml) {
+  // Build the JSON resource matching the YAML (subset that the API accepts).
+  const resource = {
+    metadata: { title: d.title },
+    enabled: d.enabled === 'true',
+    status: d.status,
+    level: d.level,
+  };
+  if (d.author) resource.metadata.author = d.author;
+  if (d.description) resource.metadata.description = d.description;
+  const refs = [...d.references];
+  if (d.mode === 'suppress' && d.origRule) refs.push('Tuned copy of standard rule: ' + d.origRule);
+  if (refs.length) resource.metadata.references = refs;
+  if (d.lsProduct || d.lsService) {
+    resource.logsource = {};
+    if (d.lsProduct) resource.logsource.product = d.lsProduct;
+    if (d.lsService) resource.logsource.service = d.lsService;
+  }
+  const selRows = [...d.selRows];
+  if (d.integrationName && !selRows.some(r => r.field === 'wazuh.integration.name')) {
+    selRows.push({ field: 'wazuh.integration.name', mod: '', value: d.integrationName });
+  }
+  const filterGroups = groupFilters(d.filtRows);
+  let condition = d.conditionOverride;
+  if (!condition) {
+    condition = 'selection';
+    if (filterGroups.length === 1) condition += ' and not filter_1';
+    else if (filterGroups.length > 1) condition += ' and not 1 of filter_*';
+  }
+  const detection = { condition };
+  detection.selection = mapToObj(buildSelectionMap(selRows));
+  filterGroups.forEach((rows, i) => { detection['filter_' + (i + 1)] = mapToObj(buildSelectionMap(rows)); });
+  resource.detection = detection;
+  if (d.tactics.length || d.techniques.length) {
+    resource.mitre = { tactic: d.tactics, technique: d.techniques, subtechnique: d.subtechniques };
+  }
+  if (Object.keys(d.compliance).length) resource.compliance = d.compliance;
+  if (d.tags.length) resource.tags = d.tags;
+  if (d.falsePositives.length) resource.falsepositives = d.falsePositives;
+
+  const body = { integration: '<your-integration-uuid>', resource };
+  const json = JSON.stringify(body, null, 2).replace(/'/g, "'\\''");
+  return [
+    '# Creates the rule in your Draft space, linked to a custom integration.',
+    '# Replace <your-integration-uuid> and the credentials/endpoint first.',
+    'curl -sk -u admin:admin -X POST \\',
+    '  "https://localhost:9200/_plugins/_content_manager/rules" \\',
+    "  -H 'Content-Type: application/json' \\",
+    "  -d '" + json + "'",
+  ].join('\n');
+}
+
+function mapToObj(map) {
+  const o = {};
+  for (const [k, vals] of map) o[k] = vals.length === 1 ? vals[0] : vals;
+  return o;
+}
+
+/* ---------------------------------------------------------- 4.x generator */
+
+function compile4xElement(row, negate, lossy) {
+  // Returns XML line(s) for one condition row.
+  const el = WCS_TO_4X[row.field];
+  const vals = splitList(row.value);
+  const joined = vals.join('|');
+  const neg = negate ? ' negate="yes"' : '';
+
+  if (row.mod === 'exists') {
+    const wantAbsent = row.value.toLowerCase() === 'false';
+    const negAttr = (wantAbsent !== negate) ? ' negate="yes"' : '';
+    return `    <field name="${escapeXml(row.field)}" type="pcre2"${negAttr}>.+</field>`;
+  }
+  if (['gt', 'gte', 'lt', 'lte'].includes(row.mod)) {
+    lossy.push(`Numeric comparison on "${row.field}" has no 4.x equivalent — emitted as a comment.`);
+    return `    <!-- TODO (no 4.x equivalent): ${escapeXml(row.field)} ${row.mod} ${escapeXml(row.value)} -->`;
+  }
+
+  if (el && el !== 'match') {
+    // dedicated element: srcip supports CIDR natively; others use sregex-ish alternation
+    if (row.mod && !(row.mod === 'cidr' && (el === 'srcip' || el === 'dstip'))) {
+      if (['contains', 'startswith', 'endswith', 're', 're|i'].includes(row.mod)) {
+        lossy.push(`"${row.field}" (${row.mod}) mapped to <${el}> which uses its own matching syntax — review the value.`);
+      }
+    }
+    return `    <${el}${neg}>${escapeXml(joined)}</${el}>`;
+  }
+
+  if (el === 'match') {
+    // event.original -> raw log matching
+    if (row.mod === 're' || row.mod === 're|i') {
+      const pat = (row.mod === 're|i' ? '(?i)' : '') + joined;
+      return `    <regex type="pcre2"${neg}>${escapeXml(pat)}</regex>`;
+    }
+    return `    <match${neg}>${escapeXml(joined)}</match>`;
+  }
+
+  // generic decoded field -> <field name="..." type="pcre2">
+  let pat;
+  switch (row.mod) {
+    case '':            pat = vals.map(v => '^' + escapeRegex(v) + '$').join('|'); break;
+    case 'contains':    pat = vals.map(escapeRegex).join('|'); break;
+    case 'startswith':  pat = vals.map(v => '^' + escapeRegex(v)).join('|'); break;
+    case 'endswith':    pat = vals.map(v => escapeRegex(v) + '$').join('|'); break;
+    case 're':          pat = joined; break;
+    case 're|i':        pat = '(?i)' + joined; break;
+    case 'cidr':
+      lossy.push(`CIDR matching on "${row.field}" only works on <srcip>/<dstip> in 4.x — review this condition.`);
+      pat = escapeRegex(joined);
+      break;
+    default:            pat = escapeRegex(joined);
+  }
+  return `    <field name="${escapeXml(row.field)}" type="pcre2"${neg}>${escapeXml(pat)}</field>`;
+}
+
+function generate4x(d, lossy) {
+  const out = [];
+  const groupName = d.mode === 'author'
+    ? (d.groupName || 'local,custom,')
+    : 'local,suppression,';
+  const mitreXml = d.techniques.length
+    ? ['    <mitre>', ...d.techniques.map(t => `      <id>${escapeXml(t)}</id>`), '    </mitre>']
+    : [];
+  const groupTags = [];
+  for (const t of d.tags) groupTags.push(t.replace(/[, ]+/g, '_'));
+  for (const [k, vals] of Object.entries(d.compliance)) for (const v of vals) groupTags.push(k + '_' + v);
+  const groupLine = groupTags.length ? `    <group>${escapeXml(groupTags.join(',') + ',')}</group>` : '';
+
+  out.push('<!-- Add to /var/ossec/etc/rules/local_rules.xml, then restart the manager:');
+  out.push('     systemctl restart wazuh-manager -->');
+  out.push(`<group name="${escapeXml(groupName)}">`);
+
+  if (d.mode === 'suppress') {
+    const filterGroups = groupFilters(d.filtRows);
+    const groups = filterGroups.length ? filterGroups : [[]];
+    let sid = d.newSid || 100100;
+    groups.forEach((rows, i) => {
+      out.push('');
+      out.push(`  <!-- Suppression ${i + 1}${groups.length > 1 ? ' of ' + groups.length : ''}: matches the false positive and drops it (level 0). -->`);
+      out.push(`  <rule id="${sid + i}" level="${d.level4x}">`);
+      out.push(`    <if_sid>${escapeXml(String(d.parentSid || 'PARENT_RULE_ID'))}</if_sid>`);
+      for (const row of d.selRows) out.push(compile4xElement(row, false, lossy));
+      for (const row of rows) out.push(compile4xElement(row, false, lossy));
+      out.push(`    <description>${escapeXml(d.title || 'Suppression rule')}</description>`);
+      out.push(...mitreXml);
+      if (groupLine) out.push(groupLine);
+      out.push('  </rule>');
+    });
+  } else {
+    out.push('');
+    out.push(`  <rule id="${d.authorSid || 100100}" level="${d.level4x}">`);
+    if (d.decodedAs) out.push(`    <decoded_as>${escapeXml(d.decodedAs)}</decoded_as>`);
+    for (const row of d.selRows) out.push(compile4xElement(row, false, lossy));
+    const filterGroups = groupFilters(d.filtRows);
+    if (filterGroups.length) {
+      filterGroups.forEach((rows, i) => {
+        if (i > 0) lossy.push('4.x cannot OR exclusion groups inside one rule — extra groups were emitted as additional negated conditions (AND semantics). Review the logic.');
+        for (const row of rows) out.push(compile4xElement(row, true, lossy));
+      });
+    }
+    out.push(`    <description>${escapeXml(d.title || 'Custom rule')}</description>`);
+    out.push(...mitreXml);
+    if (groupLine) out.push(groupLine);
+    out.push('  </rule>');
+  }
+
+  out.push('</group>');
+  return out.join('\n') + '\n';
+}
+
+/* ------------------------------------------------------------ data gather */
+
+function gather() {
+  const compliance = {};
+  for (const inp of $$('[data-compliance]')) {
+    const vals = splitList(inp.value);
+    if (vals.length) compliance[inp.dataset.compliance] = vals;
+  }
+  return {
+    mode: state.mode,
+    target: state.target,
+    title: $('#fTitle').value.trim(),
+    author: $('#fAuthor').value.trim(),
+    description: $('#fDescription').value.trim(),
+    references: splitLines($('#fReferences').value),
+    origRule: $('#fOrigRule').value.trim(),
+    parentSid: $('#fParentSid').value.trim(),
+    newSid: parseInt($('#fNewSid').value, 10) || 100100,
+    authorSid: parseInt($('#fAuthorSid').value, 10) || 100100,
+    groupName: $('#fGroupName').value.trim(),
+    decodedAs: $('#fDecodedAs').value.trim(),
+    lsProduct: $('#fLsProduct').value.trim(),
+    lsService: $('#fLsService').value.trim(),
+    integrationName: $('#fIntegrationName').value.trim(),
+    selRows: readRows('#selTable', false),
+    filtRows: readRows('#filtTable', true),
+    conditionOverride: $('#fCondition').value.trim(),
+    level: $('#fLevel').value,
+    level4x: parseInt($('#fLevel4x').value, 10) >= 0 ? parseInt($('#fLevel4x').value, 10) : 0,
+    status: $('#fStatus').value,
+    enabled: $('#fEnabled').value,
+    tactics: $$('#mitreTactics input:checked').map(c => c.value),
+    techniques: splitList($('#fMitreTech').value),
+    subtechniques: splitList($('#fMitreSub').value),
+    compliance,
+    tags: splitList($('#fTags').value),
+    falsePositives: splitLines($('#fFalsePositives').value),
+  };
+}
+
+function validate(d) {
+  const errs = [];
+  if (!d.title) errs.push('Title is required (step 1).');
+  if (d.mode === 'suppress') {
+    if (d.target === '4x' && !d.parentSid) errs.push('The rule ID to suppress (if_sid) is required for 4.x (step 1).');
+    if (!d.filtRows.length) errs.push('Add at least one condition that identifies the false positive (step 3).');
+    if (d.target === '5x' && !d.selRows.length) errs.push('For 5.x, reproduce the original rule\'s match conditions as selection rows (step 3) — the tuned copy must still detect the real threat.');
+  } else {
+    if (!d.selRows.length) errs.push('Add at least one match condition (step 3).');
+  }
+  if (d.target === '4x') {
+    const sid = d.mode === 'suppress' ? d.newSid : d.authorSid;
+    if (sid < 100000 || sid > 120000) errs.push('Custom 4.x rule IDs must be in the 100000–120000 range.');
+  }
+  if (d.target === '5x' && d.tactics.length === 0 && d.techniques.length > 0) {
+    errs.push('5.x MITRE mappings require tactic IDs alongside techniques (step 4).');
+  }
+  return errs;
+}
+
+/* ------------------------------------------------------------- deployment */
+
+function applySteps(d) {
+  if (d.target === '5x') {
+    const steps = [
+      'Create (or pick) a <b>custom integration</b> in your Draft space — custom rules cannot attach to standard integrations.',
+      'Create the rule with the curl command below (Draft space). The API returns the rule UUID.',
+      'Promote the rule to the <b>Test</b> space and validate it with <code>POST /_plugins/_content_manager/logtest</code> using a sample log: check <code>normalization.output</code> for field paths and <code>detection.matches</code> for the verdict.',
+      'Promote to the <b>Custom</b> space and assign the integration to a detector.',
+    ];
+    if (d.mode === 'suppress') {
+      steps.push('Finally, <b>disable the original standard rule</b> (set <code>enabled: false</code> on it) so only the tuned copy fires.');
+    }
+    return steps;
+  }
+  const steps = [
+    'Append the XML to <code>/var/ossec/etc/rules/local_rules.xml</code> on the manager.',
+    'Check syntax: <code>/var/ossec/bin/wazuh-logtest</code> (paste a sample log and confirm the expected rule fires).',
+    'Restart the manager: <code>systemctl restart wazuh-manager</code>.',
+  ];
+  if (d.mode === 'suppress') {
+    steps.splice(1, 0,
+      'The level-0 child rule matches the false positive more specifically than rule ' +
+      escapeHtml(String(d.parentSid || '?')) + ', so those events stop alerting while everything else still fires.');
+  }
+  return steps;
+}
+
+/* ------------------------------------------------------------- rendering */
+
+let lastOutput = { text: '', filename: 'rule.yml' };
+
+function refresh() {
+  state.mode = document.querySelector('input[name=mode]:checked').value;
+  const is5x = state.target === '5x';
+  const isSuppress = state.mode === 'suppress';
+
+  $$('.only-5x').forEach(el => el.classList.toggle('hidden', !is5x));
+  $$('.only-4x').forEach(el => el.classList.toggle('hidden', is5x));
+  $('#suppressBasics').classList.toggle('hidden', !isSuppress);
+  $('#authorBasics').classList.toggle('hidden', isSuppress);
+
+  // conditions step labels
+  $('#condTitle').textContent = isSuppress ? 'Describe the false positive' : 'Detection conditions';
+  $('#condHint').innerHTML = isSuppress
+    ? (is5x
+      ? 'The tuned rule keeps the original match conditions (<b>selection</b>) and adds exclusions (<b>filters</b>) for the false positive: <code>selection and not filter</code>.'
+      : 'The wizard writes a child rule with <code>if_sid</code> pointing at the noisy rule. When the conditions below also match, the event hits the more specific level-0 rule and is silenced.')
+    : 'Define what the rule matches. Optionally add exclusions for known-good activity.';
+  $('#selLegend').textContent = isSuppress
+    ? (is5x ? 'Original rule match conditions (selection)' : 'Extra match conditions (optional)')
+    : 'Match conditions (selection)';
+  $('#selHint').textContent = isSuppress
+    ? (is5x
+      ? 'Copy the detection fields from the original rule so the tuned copy still catches real attacks.'
+      : 'Usually empty — the if_sid binding is enough. Add conditions only to narrow further.')
+    : 'All conditions must match (AND). Comma-separate values within one condition for OR.';
+  $('#filtLegend').textContent = isSuppress ? 'False-positive conditions (what to silence)' : 'Exclusions (optional)';
+  $('#filtHint').textContent = isSuppress
+    ? 'Identify the legitimate traffic as precisely as possible — a scanner IP, a service account, a host. Broad suppressions hide real attacks.'
+    : 'Known-good activity the rule should NOT fire on.';
+
+  renderReview();
+}
+
+function renderReview() {
+  const d = gather();
+  const errs = validate(d);
+  const errList = $('#errList');
+  errList.classList.toggle('hidden', !errs.length);
+  errList.innerHTML = errs.map(e => '<li>' + e + '</li>').join('');
+
+  const lossy = [];
+  let text, filename;
+  if (d.target === '5x') {
+    text = generate5x(d);
+    filename = slug(d.title || 'rule') + '.yml';
+    $('#outCurl').textContent = generateCurl(d, text);
+    $('#outTitle').textContent = 'Generated rule (5.x Sigma YAML)';
+  } else {
+    text = generate4x(d, lossy);
+    filename = 'local_rules_snippet.xml';
+    $('#outTitle').textContent = 'Generated rule (4.x local_rules.xml)';
+  }
+  $('#outMain').textContent = text;
+  lastOutput = { text, filename };
+
+  const notice = $('#lossyNotice');
+  const uniq = [...new Set(lossy)];
+  notice.classList.toggle('hidden', !uniq.length);
+  notice.innerHTML = uniq.length ? '<b>Review needed:</b><br>' + uniq.map(escapeHtml).join('<br>') : '';
+
+  $('#applySteps').innerHTML = applySteps(d).map(s => '<li>' + s + '</li>').join('');
+}
+
+function slug(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'rule';
+}
+
+/* ------------------------------------------------------------- navigation */
+
+function goStep(n) {
+  state.step = n;
+  $$('.step').forEach(s => s.classList.toggle('hidden', Number(s.dataset.step) !== n));
+  $$('#stepNav li').forEach(li => li.classList.toggle('active', Number(li.dataset.step) === n));
+  if (n === 4) renderReview();
+  window.scrollTo({ top: 0 });
+}
+
+$$('#stepNav li').forEach(li => li.addEventListener('click', () => goStep(Number(li.dataset.step))));
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]');
+  if (nav) goStep(Number(nav.dataset.nav));
+});
+
+$('#targetSeg').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-target]');
+  if (!btn) return;
+  state.target = btn.dataset.target;
+  $$('#targetSeg button').forEach(b => b.classList.toggle('on', b === btn));
+  refresh();
+});
+
+$$('input[name=mode]').forEach(r => r.addEventListener('change', () => {
+  // sensible defaults per mode
+  if (r.checked && r.value === 'suppress') { $('#fLevel4x').value = 0; }
+  if (r.checked && r.value === 'author' && Number($('#fLevel4x').value) === 0) {
+    $('#fLevel4x').value = LEVEL_5X_TO_4X[$('#fLevel').value];
+  }
+  refresh();
+}));
+
+$('#fLevel').addEventListener('change', () => {
+  if (state.mode === 'author') $('#fLevel4x').value = LEVEL_5X_TO_4X[$('#fLevel').value];
+  refresh();
+});
+
+document.addEventListener('input', e => {
+  if (e.target.closest('.step')) refresh();
+});
+
+/* --------------------------------------------------------------- actions */
+
+function copyText(text, msgEl) {
+  const done = () => { msgEl.textContent = 'Copied ✓'; setTimeout(() => msgEl.textContent = '', 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) {}
+  ta.remove();
+}
+
+$('#btnCopy').addEventListener('click', () => copyText(lastOutput.text, $('#copyMsg')));
+$('#btnCopyCurl').addEventListener('click', () => copyText($('#outCurl').textContent, $('#copyMsg')));
+$('#btnDownload').addEventListener('click', () => {
+  const blob = new Blob([lastOutput.text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = lastOutput.filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('#btnStartOver').addEventListener('click', () => location.reload());
+
+/* ---------------------------------------------------------------- kickoff */
+
+refresh();
+goStep(0);
+</script>
+</body>
+</html>
